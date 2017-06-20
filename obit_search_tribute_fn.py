@@ -86,8 +86,3 @@ for row in pats:
 		time.sleep(0.5)
 	else:
 		continue
-	
-df2 = pd.DataFrame(death_list)
-
-#df2.to_csv('AnthemDeathResults.csv')
-#df2.to_csv('DeclineDeathResults.csv')
