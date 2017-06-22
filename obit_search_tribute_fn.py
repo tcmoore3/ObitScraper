@@ -17,22 +17,24 @@ def findDeathDate(global_member_id, first_name, last_name, dob, discharge_date =
 	u = re.search('item_ids = (.+?);', r)
 	jdata = json.loads(u.group(1))
 	death_date = ''
-	results = {'global_member_id': global_member_id, 'first_name': first_name, 'last_name': last_name, 'death_date': death_date}
+	match_count = 0
+	results = {'global_member_id': global_member_id, 'first_name': first_name, 'last_name': last_name, 'death_date': death_date, 'time_generated': datetime.datetime.now(), 'match_count': match_count}
 	year, month, day = discharge_date.split('-')
 	discharge_date = datetime.date(int(year), int(month), int(day))
-	loose_discharge_date = discharge_date + datetime.timedelta(days = discharge_date_cushion)
+	loose_discharge_date = discharge_date + datetime.timedelta(days=discharge_date_cushion)
 	for row in jdata:
-		death_year, death_month, death_day = row['dod'].split('/')
-		obit_death = datetime.date(int(death_year), int(death_month), int(death_day))
+		year, month, day = row['dod'].split('/')
+		obit_death_date = datetime.date(int(year), int(month), int(day))
 		if (row['first_name'] == first_name.lower() and row['last_name'] == last_name.lower() and row['dob'] == dob.replace('-', '/')
-		and obit_death >= loose_discharge_date):
-				death_date = obit_death
-				results = {'global_member_id': global_member_id, 'first_name': first_name, 'last_name': last_name, 'death_date': death_date}
+		and obit_death_date >= loose_discharge_date):
+				match_count += 1
+				results['death_date'] = obit_death_date
+				results['match_count'] = match_count
 	return results
 
 def csv_output(file_mode, write_mode, results=''):
 	with open(output_file, file_mode) as f:
-		writer = csv.DictWriter(f, lineterminator='\n', fieldnames=['global_member_id', 'first_name', 'last_name', 'death_date'])
+		writer = csv.DictWriter(f, lineterminator='\n', fieldnames=['global_member_id', 'first_name', 'last_name', 'death_date', 'time_generated', 'match_count'])
 		if write_mode == 'header':
 			writer.writeheader()
 		if write_mode == 'results':
