@@ -21,6 +21,7 @@ complete_lookups = 0
 successful_lookups = 0
 skipped_lookups = 0
 previous_global_ids = []
+spaces_between_output_headers = 3
 
 def findDeathDate(global_member_id, first_name, last_name, dob, discharge_date = 'NULL', state = ''):
 	url = ('http://www.tributes.com/search/obituaries/?solr=&first=' + first_name + '&last=' + last_name
@@ -53,7 +54,7 @@ def findDeathDate(global_member_id, first_name, last_name, dob, discharge_date =
 			results['tributes_url'] = 'http://www.tributes.com/obituary/show/' + real_id.group(1)
 	return results
 
-def csv_output(file_mode, write_mode, results=''):
+def csvOutput(file_mode, write_mode, results=''):
 	with open(output_file, file_mode) as f:
 		writer = csv.DictWriter(f, lineterminator='\n', fieldnames=['global_member_id', 'first_name', 'last_name', 'death_date', 'time_generated',
 			                                                        'match_count', 'tributes_id', 'tributes_url'])
@@ -62,17 +63,40 @@ def csv_output(file_mode, write_mode, results=''):
 		if write_mode == 'results':
 			writer.writerow(results)
 
-def print_results(write_mode):
+def printResults(write_mode):
+	hdrs = ['Success', 'Complete', 'Skipped', 'Remaining', 'Total', 'Success Rate', 'Completion Rate', 'Time Elapsed']
+	try:
+		succ_pct = str(int(float(successful_lookups) / float(complete_lookups - skipped_lookups) * 100)) + '%'
+	except ZeroDivisionError:
+		succ_pct = '0%'
+	rslt = [str(successful_lookups),
+	        str(complete_lookups),
+	        str(skipped_lookups),
+	        str(len(df) - complete_lookups - skipped_lookups),
+	        str(len(df)),
+	        succ_pct,
+	        str(int(float(complete_lookups + skipped_lookups) / float(len(df)) * 100)) + '%',
+	        str(datetime.datetime.now() - start_time)]
+
+	for idx, val in enumerate(hdrs):
+		hdrs[idx] = [val, len(val), rslt[idx]]
+
 	if write_mode == 'header':
-		print ('Success' + '\t' + 'Complete' + '\t' + 'Skipped' + '\t' + 'Remaining' + '\t' + 'Total' + '\t' + 'Success Rate' + '\t' + 'Completion Rate'
-			    + '\t' * 2 + 'Time Elapsed')
+		print ''
+		for h in hdrs:
+			if h == hdrs[len(hdrs) - 1]:
+				print h[0]
+			else:
+				print h[0] + ' ' * spaces_between_output_headers,
 	if write_mode == 'results':
-		print (str(successful_lookups) + '\t' + str(complete_lookups) + '\t' * 2 + str(skipped_lookups) + '\t' + str(len(df) - complete_lookups - skipped_lookups) + '\t' * 2 + str(len(df)) + '\t'
-		      + str(int(float(successful_lookups) / float(complete_lookups) * 100)) + '%' + '\t' * 2 + str(int(float(complete_lookups + skipped_lookups) / float(len(df)) * 100))
-		      + '%' + '\t' * 3 + str(datetime.datetime.now() - start_time))
+		for h in hdrs:
+			if h == hdrs[len(hdrs) - 1]:
+				print str(datetime.datetime.now() - start_time)
+			else:
+				print str(h[2]) + ' ' * (spaces_between_output_headers + h[1] - len(str(h[2]))),
 
 if overwrite_output == 1:
-	csv_output('wb', 'header')
+	csvOutput('wb', 'header')
 
 df = pd.read_csv(input_file)
 pats = df.to_dict('records')
@@ -83,7 +107,7 @@ with open(output_file, 'rb') as csvfile:
 	for row in reader:
 		previous_global_ids.append(row[0])
 
-print_results('header')
+printResults('header')
 
 for row in pats:
 	if overwrite_output == '0' and str(row['global_member_id']) in previous_global_ids:
@@ -91,12 +115,13 @@ for row in pats:
 		skipped_lookups += 1
 		continue
 	results = findDeathDate(row['global_member_id'], row['first_name'], row['last_name'], row['person_birth_date'], row['discharge_date'])
-	delay_until= datetime.datetime.now() + datetime.timedelta(seconds=avoid_block_seconds + random.randint(0, 1) - 0.5)
-	csv_output('a', 'results', results)
+	avoid_block_seconds += random.randint(0, 1) - 0.5
+	delay_until= datetime.datetime.now() + datetime.timedelta(seconds=avoid_block_seconds)
+	csvOutput('a', 'results', results)
 	complete_lookups += 1
 	if results['death_date'] != '':
 		successful_lookups += 1
-	print_results('results')
+	printResults('results')
 
 	while datetime.datetime.now() < delay_until:
 		time.sleep(0.25)
