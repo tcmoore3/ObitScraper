@@ -1,3 +1,5 @@
+# Python 2.7
+
 import csv
 import datetime
 import json
@@ -10,8 +12,8 @@ import pandas as pd
 import requests
 
 start_time = datetime.datetime.now()
-avoid_block_seconds = 5					# avoid getting blacklisted by websites by waiting
-discharge_date_cushion = -14			# make sure death date not too far before discharge date
+avoid_block_seconds = 5
+discharge_date_cushion = -14
 input_file = sys.argv[1]
 output_file = sys.argv[2]
 overwrite_output = sys.argv[3]
@@ -20,13 +22,9 @@ successful_lookups = 0
 skipped_lookups = 0
 previous_global_ids = []
 
-# Print console output headers
-print ('Success' + '\t' + 'Complete' + '\t' + 'Skipped' + '\t' + 'Remaining' + '\t' + 'Total' + '\t' + 'Success Rate' + '\t' + 'Completion Rate'
-       + '\t' * 2 + 'Time Elapsed')
-
 def findDeathDate(global_member_id, first_name, last_name, dob, discharge_date = 'NULL', state = ''):
 	url = ('http://www.tributes.com/search/obituaries/?solr=&first=' + first_name + '&last=' + last_name
-	       + '&city=&state=' + state + '&search_type=Range+2010-NowAll&dod=&keywords=')
+	       + '&city=&state=' + state + '&search_type=Range+2010-Now&dod=&keywords=')
 	usr_agent = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.2; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/32.0.1667.0 Safari/537.36'}
 	r = requests.get(url, headers=usr_agent).text
 	u = re.search('item_ids = (.+?);', r)
@@ -64,10 +62,14 @@ def csv_output(file_mode, write_mode, results=''):
 		if write_mode == 'results':
 			writer.writerow(results)
 
-def print_results():
-	print (str(successful_lookups) + '\t' + str(complete_lookups) + '\t' * 2 + str(skipped_lookups) + '\t' + str(len(df) - complete_lookups - skipped_lookups) + '\t' * 2 + str(len(df)) + '\t'
-	      + str(int(float(successful_lookups) / float(complete_lookups) * 100)) + '%' + '\t' * 2 + str(int(float(complete_lookups + skipped_lookups) / float(len(df)) * 100))
-	      + '%' + '\t' * 3 + str(datetime.datetime.now() - start_time))
+def print_results(write_mode):
+	if write_mode == 'header':
+		print ('Success' + '\t' + 'Complete' + '\t' + 'Skipped' + '\t' + 'Remaining' + '\t' + 'Total' + '\t' + 'Success Rate' + '\t' + 'Completion Rate'
+			    + '\t' * 2 + 'Time Elapsed')
+	if write_mode == 'results':
+		print (str(successful_lookups) + '\t' + str(complete_lookups) + '\t' * 2 + str(skipped_lookups) + '\t' + str(len(df) - complete_lookups - skipped_lookups) + '\t' * 2 + str(len(df)) + '\t'
+		      + str(int(float(successful_lookups) / float(complete_lookups) * 100)) + '%' + '\t' * 2 + str(int(float(complete_lookups + skipped_lookups) / float(len(df)) * 100))
+		      + '%' + '\t' * 3 + str(datetime.datetime.now() - start_time))
 
 if overwrite_output == 1:
 	csv_output('wb', 'header')
@@ -81,6 +83,8 @@ with open(output_file, 'rb') as csvfile:
 	for row in reader:
 		previous_global_ids.append(row[0])
 
+print_results('header')
+
 for row in pats:
 	if overwrite_output == '0' and str(row['global_member_id']) in previous_global_ids:
 		complete_lookups += 1
@@ -92,7 +96,7 @@ for row in pats:
 	complete_lookups += 1
 	if results['death_date'] != '':
 		successful_lookups += 1
-	print_results()
+	print_results('results')
 
 	while datetime.datetime.now() < delay_until:
 		time.sleep(0.25)
