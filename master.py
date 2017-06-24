@@ -9,7 +9,7 @@ import time
 import pandas as pd
 import requests
 
-import obit_scrape_functions as obitscrape
+import obitscrape
 
 start_time = datetime.datetime.now()
 avoid_block_seconds = 2
@@ -32,11 +32,15 @@ console_results_headers = ['Success', 'Complete', 'Skipped', 'Remaining', 'Total
 if overwrite_output:
     obitscrape.csvOutput(output_file, 'wb', 'header')
 
-with open(output_file, 'rb') as csvfile:
-    reader = csv.reader(csvfile)
-    reader.next()
-    for row in reader:
-        previous_global_ids.append(row[0])
+try:
+    with open(output_file, 'rb') as csvfile:
+        reader = csv.reader(csvfile)
+        reader.next()
+        for row in reader:
+            previous_global_ids.append(row[0])
+except:
+    previous_global_ids = []
+    obitscrape.csvOutput(output_file, 'wb', 'header')
 
 obitscrape.printResults('header', console_results_headers, spaces_between_output_headers)
 
