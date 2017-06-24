@@ -16,12 +16,14 @@ avoid_block_seconds = 5
 discharge_date_cushion = -14
 input_file = sys.argv[1]
 output_file = sys.argv[2]
-overwrite_output = sys.argv[3]
+overwrite_output = sys.argv[3].lower() in ['true', '1', 't', 'y', 'yes']
 complete_lookups = 0
 successful_lookups = 0
 skipped_lookups = 0
 previous_global_ids = []
 spaces_between_output_headers = 3
+
+print overwrite_output
 
 def findDeathDate(global_member_id, first_name, last_name, dob, discharge_date = 'NULL', state = ''):
 	url = ('http://www.tributes.com/search/obituaries/?solr=&first=' + first_name + '&last=' + last_name
@@ -42,15 +44,25 @@ def findDeathDate(global_member_id, first_name, last_name, dob, discharge_date =
 	for row in jdata:
 		year, month, day = row['dod'].split('/')
 		obit_death_date = datetime.date(int(year), int(month), int(day))
-		if (row['first_name'] == first_name.lower() and row['last_name'] == last_name.lower() and row['dob'] == dob.replace('-', '/')
-		and obit_death_date >= loose_discharge_date):
+		match_first_name = row['first_name'] == first_name.lower()
+		match_last_name = row['last_name'] == last_name.lower()
+		match_dob = row['dob'] == dob.replace('-', '/')
+		match_dod = obit_death_date >= loose_discharge_date
+		if match_first_name and match_last_name and match_dob and match_dod:
 			match_count += 1
 			results['death_date'] = obit_death_date
 			results['match_count'] = match_count
 			search_id = row['id']
 			real_id = re.search('search_item_' + str(search_id) + '(.*?) class="serif', r, re.DOTALL).group(1)
 			real_id = re.search('/obituary/show/[^0-9]*?-([0-9]*?)"', real_id)
-			results['tributes_id'] = real_id.group(1)
+			try:
+				results['tributes_id'] = real_id.group(1)
+			except:
+				print 'Parser broke when looking for ID for ' + first_name + ' ' + last_name + '. DOB = ' + str(dob) + '. Global = ' + str(global_member_id)
+				results['tributes_id'] = 'ERROR: PARSER FAIL'
+				results['tributes_url'] = 'ERORR: PARSER FAIL. NEEDS MANUAL LOOKUP'
+				continue
+				#exit()
 			results['tributes_url'] = 'http://www.tributes.com/obituary/show/' + real_id.group(1)
 	return results
 
@@ -77,10 +89,8 @@ def printResults(write_mode):
 	        succ_pct,
 	        str(int(float(complete_lookups + skipped_lookups) / float(len(df)) * 100)) + '%',
 	        str(datetime.datetime.now() - start_time)]
-
 	for idx, val in enumerate(hdrs):
 		hdrs[idx] = [val, len(val), rslt[idx]]
-
 	if write_mode == 'header':
 		print ''
 		for h in hdrs:
@@ -95,7 +105,7 @@ def printResults(write_mode):
 			else:
 				print str(h[2]) + ' ' * (spaces_between_output_headers + h[1] - len(str(h[2]))),
 
-if overwrite_output == 1:
+if overwrite_output:
 	csvOutput('wb', 'header')
 
 df = pd.read_csv(input_file)
@@ -110,7 +120,8 @@ with open(output_file, 'rb') as csvfile:
 printResults('header')
 
 for row in pats:
-	if overwrite_output == '0' and str(row['global_member_id']) in previous_global_ids:
+	prior_id = str(row['global_member_id']) in previous_global_ids
+	if not overwrite_output and prior_id:
 		complete_lookups += 1
 		skipped_lookups += 1
 		continue
